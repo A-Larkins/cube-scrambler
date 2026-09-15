@@ -60,15 +60,43 @@ struct ContentView: View {
             ZStack {
                 CubeSceneView(session: session, store: store)
                 if session.isPreparing { preparing }
+                viewpointNote
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             MoveInstructionView(move: session.upcomingMove,
                                 step: session.position + 1,
                                 total: session.scramble.count,
-                                isComplete: session.isComplete)
+                                isComplete: session.isComplete,
+                                hold: store.hold)
                 .padding(.horizontal, 18)
             transport
                 .padding(.vertical, 14)
+        }
+    }
+
+    /// The camera swings round to show the back or bottom when that's what turns next, and
+    /// the cube on screen then no longer matches the one in your hands. Say so.
+    @ViewBuilder private var viewpointNote: some View {
+        if !store.lockOrientation, !session.isPreparing, let move = session.upcomingMove,
+           move.face == .B || move.face == .D {
+            let color = store.hold.color(of: move.face).name
+            let front = store.hold.color(of: .F).name
+            // From behind, left and right swap on screen, so the arrow looks backwards
+            // compared with the words. Give the direction again in terms of your hands.
+            let backDirection = move.instruction.direction.map {
+                "its top edge moves to YOUR \($0.lowercased())"
+            } ?? "turn it twice"
+            Text(move.face == .B
+                 ? "Seen from behind, so the arrow looks reversed. Keep \(front) facing you: "
+                    + "on the \(color) back layer, \(backDirection)."
+                 : "Seen from below. Keep \(front) facing you and turn the \(color) layer on the bottom.")
+                .multilineTextAlignment(.center)
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.regularMaterial, in: Capsule())
+                .frame(maxHeight: .infinity, alignment: .top)
+                .padding(.top, 12)
         }
     }
 
@@ -99,20 +127,32 @@ struct ContentView: View {
 
             Spacer()
 
+            Picker(selection: $store.hold) {
+                ForEach(Hold.allCases, id: \.self) { hold in
+                    Text(hold.displayName).tag(hold)
+                }
+            } label: {
+                Label("Hold", systemImage: "hand.raised")
+            }
+            .pickerStyle(.menu)
+            .fixedSize()
+            .help("How you hold the cube before you start. The colours on screen follow it.")
+
             Toggle(isOn: $store.lockOrientation) {
-                Label("Lock orientation", systemImage: store.lockOrientation ? "lock" : "lock.open")
+                Label("Lock view", systemImage: store.lockOrientation ? "lock" : "lock.open")
             }
             .toggleStyle(.button)
-            .help("Keep the camera still so the cube on screen matches the one in your hands. "
+            .help("Lock view: keep the camera still so the cube on screen matches the one in your hands. "
                   + "With it off, the view swings round to whichever face is turning.")
 
             Button {
                 Task { await session.newScramble() }
             } label: {
-                Label("New scramble", systemImage: "arrow.triangle.2.circlepath")
+                Label("New", systemImage: "arrow.triangle.2.circlepath")
             }
             .disabled(session.isPreparing || session.isGenerating)
             .keyboardShortcut("n", modifiers: .command)
+            .help("New scramble (\u{2318}N or R)")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -157,17 +197,19 @@ struct ContentView: View {
                 Text("Scramble")
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
-                ScrambleStripView(moves: session.scramble, position: session.position)
+                ScrambleStripView(moves: session.scramble, position: session.position,
+                                  onSelect: { session.select($0) })
             }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("All six faces")
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
-                NetView(facelets: session.facelets)
+                NetView(facelets: session.facelets, hold: store.hold)
                     .frame(height: 172)
                     .padding(.top, 4)
-                Text("White on top, green in front.")
+                Text(store.hold.color(of: .U).name.capitalized + " on top, "
+                     + store.hold.color(of: .F).name + " in front (F).")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }

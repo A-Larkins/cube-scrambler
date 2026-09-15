@@ -23,6 +23,7 @@ final class Store: ObservableObject {
     @Published var history: [ScrambleRecord] = []
     @Published var puzzle: PuzzleKind = .three { didSet { saveSettings() } }
     @Published var lockOrientation: Bool = false { didSet { saveSettings() } }
+    @Published var hold: Hold = .standard { didSet { saveSettings() } }
 
     static let historyLimit = 50
 
@@ -82,10 +83,12 @@ final class Store: ObservableObject {
         else { return }
         if let value = (raw["puzzle"] as? String).flatMap(PuzzleKind.init(rawValue:)) { puzzle = value }
         if let value = raw["lockOrientation"] as? Bool { lockOrientation = value }
+        if let value = (raw["hold"] as? String).flatMap(Hold.init(rawValue:)) { hold = value }
     }
 
     private func saveSettings() {
-        write(["puzzle": puzzle.rawValue, "lockOrientation": lockOrientation], to: settingsURL)
+        write(["puzzle": puzzle.rawValue, "lockOrientation": lockOrientation, "hold": hold.rawValue],
+              to: settingsURL)
     }
 
     private func write(_ object: Any, to url: URL) {

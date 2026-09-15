@@ -8,25 +8,11 @@ enum PuzzleKind: String, CaseIterable, Codable, Sendable {
     var displayName: String { self == .three ? "3\u{00D7}3" : "2\u{00D7}2" }
 }
 
-/// The colour of a sticker, named by the face it belongs to on a solved cube.
-/// Standard Western scheme with white up and green front.
-extension Face {
-    var stickerName: String {
-        switch self {
-        case .U: return "white"
-        case .R: return "red"
-        case .F: return "green"
-        case .D: return "yellow"
-        case .L: return "orange"
-        case .B: return "blue"
-        }
-    }
-}
-
 /// Every sticker on the cube, as the face whose colour it shows.
 ///
 /// One representation drives both the 3D scene and the 2D net, so they can never
-/// disagree about what the cube looks like.
+/// disagree about what the cube looks like. Which actual colour a face is depends on how
+/// you hold the cube - see `Hold`.
 struct Facelets: Equatable {
     let size: Int
     /// `size * size` entries per face, in Face raw-value order (U, R, F, D, L, B).

@@ -62,12 +62,20 @@ struct ScrambleStripView: View {
     let moves: [Move]
     /// Number of moves already applied; the move at this index is the one coming up.
     let position: Int
+    /// Called with a move's index when it is clicked.
+    var onSelect: (Int) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             FlowLayout(spacing: 5, lineSpacing: 5) {
                 ForEach(Array(moves.enumerated()), id: \.offset) { index, move in
-                    token(move, state: state(for: index))
+                    let state = state(for: index)
+                    Button { onSelect(index) } label: { token(move, state: state) }
+                        .buttonStyle(TokenButtonStyle())
+                        .focusable(false)
+                        .help(state == .current
+                              ? "\(move.instruction.sentence) \u{2014} click to make this turn"
+                              : "Show turn \(index + 1): \(move.instruction.sentence)")
                 }
             }
             progress
@@ -111,9 +119,33 @@ struct ScrambleStripView: View {
                 }
             }
             .frame(height: 5)
-            Text(moves.isEmpty ? " " : "\(position) of \(moves.count) turns made")
+            Text(moves.isEmpty ? " " : "\(position) of \(moves.count) turns made \u{00B7} click a move to see it")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+/// Lights a move up under the pointer, so it's obvious the strip can be clicked.
+private struct TokenButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HoverHighlight(isPressed: configuration.isPressed) { configuration.label }
+    }
+}
+
+/// `@State` does not survive in a `ButtonStyle` itself, so the hover lives in a view.
+private struct HoverHighlight<Label: View>: View {
+    let isPressed: Bool
+    @ViewBuilder let label: () -> Label
+    @State private var hovering = false
+
+    var body: some View {
+        label()
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.secondary.opacity(isPressed ? 0.3 : hovering ? 0.16 : 0))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .onHover { hovering = $0 }
     }
 }

@@ -24,6 +24,10 @@ struct CubeSceneView: NSViewRepresentable {
         let controller = CubeSceneController()
         var builtSize = 0
         var lastFacelets: Facelets?
+        var lastHold: Hold?
+        /// The turn on show while idle, and where in the scramble it sits. Kept so the
+        /// arrow is only rebuilt (and the camera only swung) when that actually changes.
+        var lastPreview: (move: Move?, position: Int, scramble: [Move])?
     }
 
     func makeNSView(context: Context) -> OrbitSceneView {
@@ -56,12 +60,24 @@ struct CubeSceneView: NSViewRepresentable {
             controller.build(size: session.puzzle.size)
             coordinator.builtSize = session.puzzle.size
             coordinator.lastFacelets = nil
+            coordinator.lastPreview = nil
         }
         guard !session.isAnimating else { return }
+        let holdChanged = coordinator.lastHold != store.hold
+        controller.hold = store.hold
+        coordinator.lastHold = store.hold
         let facelets = session.facelets
-        if force || coordinator.lastFacelets != facelets {
+        if force || holdChanged || coordinator.lastFacelets != facelets {
             controller.update(facelets: facelets)
             coordinator.lastFacelets = facelets
+        }
+
+        let upcoming = session.upcomingMove
+        let previous = coordinator.lastPreview
+        if force || previous == nil || previous!.move != upcoming
+            || previous!.position != session.position || previous!.scramble != session.scramble {
+            coordinator.lastPreview = (upcoming, session.position, session.scramble)
+            controller.showPreview(of: upcoming, swingCamera: !store.lockOrientation)
         }
     }
 

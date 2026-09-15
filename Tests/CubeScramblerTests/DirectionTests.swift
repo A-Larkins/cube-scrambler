@@ -80,6 +80,35 @@ final class DirectionTests: XCTestCase {
                           move.instruction.sentence)
         }
     }
+
+    /// The exact wording for the turns people most often get backwards.
+    func testSentencesReadTheWayYouTurn() {
+        XCTAssertEqual(Move(.R, 1).instruction.sentence, "RIGHT side UP")
+        XCTAssertEqual(Move(.R, 3).instruction.sentence, "RIGHT side DOWN")
+        XCTAssertEqual(Move(.L, 1).instruction.sentence, "LEFT side DOWN")
+        XCTAssertEqual(Move(.L, 3).instruction.sentence, "LEFT side UP")
+        XCTAssertEqual(Move(.U, 1).instruction.sentence, "TOP layer LEFT")
+        XCTAssertEqual(Move(.D, 1).instruction.sentence, "BOTTOM layer RIGHT")
+        XCTAssertEqual(Move(.F, 1).instruction.sentence, "FRONT face clockwise")
+        XCTAssertEqual(Move(.F, 3).instruction.sentence, "FRONT face counter-clockwise")
+        XCTAssertEqual(Move(.B, 1).instruction.sentence, "BACK layer LEFT")
+        XCTAssertEqual(Move(.U, 2).instruction.sentence, "TOP layer twice (180\u{00B0})")
+    }
+
+    /// The detail line has to agree with the headline's direction, never contradict it.
+    func testDetailAgreesWithDirection() {
+        for move in Move.all {
+            let instruction = move.instruction
+            guard let direction = instruction.direction else { continue }
+            let detail = instruction.detail.lowercased()
+            switch move.face {
+            case .R, .L:
+                XCTAssertTrue(detail.contains(direction == "UP" ? "rolls up" : "rolls down"), detail)
+            default:
+                XCTAssertTrue(detail.contains(direction.lowercased()), "\(move.notation): \(detail)")
+            }
+        }
+    }
 }
 
 /// Ties the drawn arrow to the written sentence.

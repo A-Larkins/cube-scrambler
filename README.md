@@ -13,10 +13,15 @@ Every turn is shown four ways at once, and all four are generated from the same 
 so they cannot contradict each other:
 
 **A sentence, not a symbol.** `L'` on its own is the problem, so the notation is never
-shown alone. It is always paired with something like *"LEFT face - turn it so the front
-column of the left face slides UP."* Every direction is stated in one fixed frame - what
-you see, looking at the cube head-on with white on top and green in front - rather than
-"clockwise", which is only meaningful once you've decided whose clockwise.
+shown alone. It is always paired with something like *"LEFT side UP - the front of that
+side rolls up and over the top, away from you"*, plus the colour of the centre you're
+looking for. Every direction is stated the way you see it holding the cube in front of
+you, rather than "clockwise", which is only meaningful once you've decided whose clockwise.
+
+**Your hold.** Pick how you hold the cube before you start - blue facing you with white
+on the bottom (the default), or the WCA's green front, white up - and the colours on
+screen and in the instructions follow it. The moves don't change: notation is relative to
+the holder, so holding the cube differently is just a relabelling of the same positions.
 
 **A curved arrow on the actual face**, wrapping the layer that is about to move, pointing
 the real direction. It is centred on the exact row or column the sentence names, so the
@@ -25,9 +30,13 @@ arrowhead lands where the words say the stickers are going.
 **The turning layer lights up and everything else dims**, so you can't grab the wrong one.
 
 **The view swings round** to whichever face is turning, ending off-axis rather than
-dead-on so the depth cues that make a rotation readable survive. If you'd rather the cube
-on screen kept matching the cube in your hands, **Lock orientation** in the toolbar holds
-the camera still and lets the arrow do the work on its own.
+dead-on so the depth cues that make a rotation readable survive. When that means looking
+from behind, a note says so, since left and right swap on screen. If you'd rather the cube
+on screen kept matching the cube in your hands, **Lock view** in the toolbar holds the
+camera still and lets the arrow do the work on its own.
+
+**Click any move** in the scramble to see it: the cube jumps to the position just before
+that turn, with its arrow on the cube and its instruction below. Click it again to make it.
 
 **One turn at a time.** A new scramble sits solved and does nothing until you press. `->`
 plays one turn, `<-` takes it back. It's meant to be followed with a cube in your hands,
@@ -86,7 +95,7 @@ silently falls behind.
 ```
 
 - `history.json` - the last 50 scrambles, newest first
-- `settings.json` - last puzzle used, and the orientation lock
+- `settings.json` - last puzzle used, how you hold the cube, and the view lock
 - `pruning-333-v1.bin`, `distances-222-v1.bin` - the generated search tables
 
 The two `.bin` files are derived data and safe to delete; the first launch after that

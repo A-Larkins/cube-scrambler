@@ -3,33 +3,86 @@ import Foundation
 /// Plain-English description of a single turn.
 ///
 /// The whole point of this app is that "L'" on its own does not tell you which way to
-/// turn, so every instruction is stated in ONE fixed frame: as you look at the cube
-/// head-on in the standard orientation (white on top, green in front). Every direction
-/// here means the direction *you see it move on screen*, not "clockwise from the point
-/// of view of the face", which is the ambiguity that makes the notation hard to read.
+/// turn, so every instruction is stated the way you see it, holding the cube in front of
+/// you: "turn the right side UP", not "clockwise from the point of view of the face",
+/// which is the ambiguity that makes the notation hard to read.
 ///
-/// Nothing below is hand-written per move. The direction is computed from the same
-/// rotation axis and sign that drives the 3D animation (`Move.rotationAxis` /
-/// `Move.signedAngle`), so the sentence and the animation cannot disagree - if one is
-/// wrong they are both wrong, and `DirectionTests` catches it.
+/// The direction is not hand-written per move. It is computed from the same rotation axis
+/// and sign that drives the 3D animation (`Move.rotationAxis` / `Move.signedAngle`), so
+/// the sentence and the animation cannot disagree - if one is wrong they are both wrong,
+/// and `DirectionTests` catches it.
 struct MoveInstruction {
     let move: Move
-    /// e.g. "LEFT"
+    /// e.g. "RIGHT"
     let faceName: String
-    /// e.g. "front column"
+    /// e.g. "front column of the right face" - the stickers the direction describes.
     let sliceName: String
-    /// e.g. "UP" - nil for half turns, where direction is meaningless.
+    /// "UP", "DOWN", "LEFT" or "RIGHT" - nil for half turns, where direction is meaningless.
     let direction: String?
-    /// Extra orienting note for the faces you cannot see.
-    let visibilityNote: String?
 
     var headline: String { move.prettyNotation }
 
+    /// What to call the part you turn: "side" for left and right, "layer" for the rest.
+    var partName: String {
+        switch move.face {
+        case .R, .L: return "side"
+        case .U, .D, .B: return "layer"
+        case .F: return "face"
+        }
+    }
+
+    /// An arrow for the direction, or a double arrow for a half turn.
+    var symbol: String {
+        if move.face == .F {
+            switch move.amount {
+            case 1: return "\u{21BB}"
+            case 3: return "\u{21BA}"
+            default: return "\u{27F2}"
+            }
+        }
+        switch direction {
+        case "UP": return "\u{2191}"
+        case "DOWN": return "\u{2193}"
+        case "LEFT": return "\u{2190}"
+        case "RIGHT": return "\u{2192}"
+        default: return move.face == .R || move.face == .L ? "\u{2195}" : "\u{2194}"
+        }
+    }
+
+    /// The short imperative, e.g. "RIGHT side UP" or "FRONT face clockwise".
     var sentence: String {
         guard let direction else {
-            return "\(faceName) face - half turn, 180\u{00B0}. Direction doesn't matter."
+            return "\(faceName) \(partName) twice (180\u{00B0})"
         }
-        return "\(faceName) face - turn it so the \(sliceName) slides \(direction)."
+        if move.face == .F {
+            return "\(faceName) face \(move.amount == 1 ? "clockwise" : "counter-clockwise")"
+        }
+        return "\(faceName) \(partName) \(direction)"
+    }
+
+    /// A second line saying what that looks like from where you are.
+    var detail: String {
+        guard let direction else {
+            return "Two quarter turns. Either direction works \u{2014} it ends up the same."
+        }
+        switch (move.face, direction) {
+        case (.R, "UP"), (.L, "UP"):
+            return "The front of that side rolls up and over the top, away from you."
+        case (.R, "DOWN"), (.L, "DOWN"):
+            return "The front of that side rolls down and underneath, toward the bottom."
+        case (.U, _):
+            return "The top row facing you slides to the \(direction.lowercased())."
+        case (.D, _):
+            return "The bottom row facing you slides to the \(direction.lowercased())."
+        case (.F, _):
+            return "Like a steering wheel turning \(direction.lowercased()) \u{2014} "
+                + "the top edge moves \(direction.lowercased())."
+        case (.B, _):
+            return "The layer at the very back. Looking from the front, "
+                + "its top edge slides to the \(direction.lowercased())."
+        default:
+            return "The \(sliceName) moves \(direction.lowercased())."
+        }
     }
 }
 
@@ -86,14 +139,6 @@ extension Move {
                 w.x * r.y - w.y * r.x)
     }
 
-    private var visibilityNote: String? {
-        switch face {
-        case .B: return "This is the face pointing away from you."
-        case .D: return "This is the face on the bottom."
-        default: return nil
-        }
-    }
-
     var instruction: MoveInstruction {
         let direction: String?
         if isHalfTurn {
@@ -105,8 +150,7 @@ extension Move {
         return MoveInstruction(move: self,
                                faceName: face.spokenName,
                                sliceName: probe.name,
-                               direction: direction,
-                               visibilityNote: visibilityNote)
+                               direction: direction)
     }
 
     /// Names the dominant component of a view-space vector the way the viewer sees it.

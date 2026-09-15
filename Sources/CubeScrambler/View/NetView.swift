@@ -6,6 +6,7 @@ import SwiftUI
 /// whether you got it right, including the three faces you cannot see from the front.
 struct NetView: View {
     let facelets: Facelets
+    let hold: Hold
     var showsLabels = true
 
     /// Column and row of each face in the standard cross layout:
@@ -51,7 +52,7 @@ struct NetView: View {
                 HStack(spacing: 1) {
                     ForEach(0..<n, id: \.self) { col in
                         RoundedRectangle(cornerRadius: cell * 0.2, style: .continuous)
-                            .fill(Palette.sticker(facelets.color(face: face, row: row, col: col)))
+                            .fill(Palette.sticker(facelets.color(face: face, row: row, col: col), hold: hold))
                     }
                 }
             }

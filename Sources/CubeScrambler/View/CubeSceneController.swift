@@ -26,6 +26,8 @@ final class CubeSceneController {
     /// Every drawn cubie, with the lattice position it occupies.
     private var cubies: [(node: SCNNode, cx: Int, cy: Int, cz: Int)] = []
     private var size = 3
+    /// Which colour each face is painted. Set before `update(facelets:)`.
+    var hold: Hold = .standard
 
     private let spacing: CGFloat = 1.03
     private var azimuth: Double = Defaults.azimuth      // continuous, so swings take the short way
@@ -38,6 +40,10 @@ final class CubeSceneController {
         static let swingDuration: TimeInterval = 0.38
         /// How long the arrow sits still before the turn starts.
         static let arrowHold: TimeInterval = 0.28
+        /// How dark the still layers go while a turn is only being shown, not made.
+        /// Lighter than during the turn, so the rest of the cube stays readable.
+        static let previewDim: CGFloat = 0.55
+        static let turnDim: CGFloat = 0.30
     }
 
     init() {
@@ -115,7 +121,7 @@ final class CubeSceneController {
                 if showsSticker {
                     let index = Facelets.index(face: face, cx: cubie.cx, cy: cubie.cy,
                                                cz: cubie.cz, size: size)
-                    color = Palette.stickerColor(facelets[index])
+                    color = Palette.stickerColor(facelets[index], hold: hold)
                 } else {
                     color = Palette.bodyColor
                 }
@@ -212,6 +218,22 @@ final class CubeSceneController {
         }
     }
 
+    /// Shows the turn that is coming up without making it: the arrow on its face, the
+    /// layer lit, and the camera round to where it can be seen. Nil clears all of that.
+    /// This is what a click on a move in the scramble lands on.
+    func showPreview(of move: Move?, swingCamera swing: Bool) {
+        cubies.forEach { cubie in
+            cubie.node.geometry?.materials.forEach { $0.multiply.contents = NSColor.white }
+        }
+        guard let move else {
+            hideArrow()
+            return
+        }
+        highlight(layer: move.face, on: true, dim: Defaults.previewDim)
+        showArrow(for: move)
+        if swing { swingCamera(to: move.face) }
+    }
+
     private func runTurn(move: Move,
                          effective: Move,
                          resulting facelets: Facelets,
@@ -261,10 +283,10 @@ final class CubeSceneController {
     /// Undimming multiplies by white rather than clearing `contents`: the property is
     /// typed `Any?`, so assigning an `NSColor?` that happens to be nil stores the wrapped
     /// optional instead of removing the shade, and the cube stays dark for good.
-    private func highlight(layer face: Face, on: Bool) {
+    private func highlight(layer face: Face, on: Bool, dim: CGFloat = Defaults.turnDim) {
         for cubie in cubies {
             let moving = Facelets.carries(face, cx: cubie.cx, cy: cubie.cy, cz: cubie.cz, size: size)
-            let shade = (on && !moving) ? NSColor(white: 0.30, alpha: 1) : NSColor.white
+            let shade = (on && !moving) ? NSColor(white: dim, alpha: 1) : NSColor.white
             cubie.node.geometry?.materials.forEach { $0.multiply.contents = shade }
         }
     }

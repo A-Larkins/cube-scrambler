@@ -160,6 +160,18 @@ final class ScrambleSession: ObservableObject {
         }
     }
 
+    /// Puts the cube just before turn `index`, so that turn is the one on show - its arrow
+    /// on the cube and its instruction below. Choosing the turn already on show makes it.
+    func select(_ index: Int) {
+        guard scramble.indices.contains(index), !isAnimating else { return }
+        isAutoPlaying = false
+        if index == position {
+            stepForward()
+        } else {
+            position = index
+        }
+    }
+
     func jumpToStart() {
         isAutoPlaying = false
         position = 0
