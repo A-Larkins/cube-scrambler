@@ -201,6 +201,12 @@ struct ContentView: View {
                                   onSelect: { session.select($0) })
             }
 
+            DealView(deal: session.deal,
+                     puzzle: session.puzzle,
+                     isBusy: session.isPreparing || session.isGenerating,
+                     onGo: { number in Task { await session.goToDeal(number) } },
+                     onStep: { offset in Task { await session.stepDeal(by: offset) } })
+
             VStack(alignment: .leading, spacing: 6) {
                 Text("All six faces")
                     .font(.system(size: 13, weight: .semibold, design: .rounded))

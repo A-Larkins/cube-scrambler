@@ -5,10 +5,11 @@ struct ScrambleRecord: Identifiable, Equatable {
     let id: UUID
     let puzzle: PuzzleKind
     let moves: [Move]
+    let deal: UInt128
     let date: Date
 
-    init(id: UUID = UUID(), puzzle: PuzzleKind, moves: [Move], date: Date = Date()) {
-        self.id = id; self.puzzle = puzzle; self.moves = moves; self.date = date
+    init(id: UUID = UUID(), puzzle: PuzzleKind, moves: [Move], deal: UInt128, date: Date = Date()) {
+        self.id = id; self.puzzle = puzzle; self.moves = moves; self.deal = deal; self.date = date
     }
 }
 
@@ -37,9 +38,9 @@ final class Store: ObservableObject {
 
     // MARK: - History
 
-    func record(_ moves: [Move], puzzle: PuzzleKind) {
-        guard !moves.isEmpty else { return }
-        history.insert(ScrambleRecord(puzzle: puzzle, moves: moves), at: 0)
+    func record(_ dealt: Deal.Dealt, puzzle: PuzzleKind) {
+        guard !dealt.moves.isEmpty else { return }
+        history.insert(ScrambleRecord(puzzle: puzzle, moves: dealt.moves, deal: dealt.number), at: 0)
         if history.count > Store.historyLimit { history.removeLast(history.count - Store.historyLimit) }
         saveHistory()
     }
@@ -61,7 +62,11 @@ final class Store: ObservableObject {
             let puzzle = (entry["puzzle"] as? String).flatMap(PuzzleKind.init(rawValue:)) ?? .three
             let date = (entry["date"] as? TimeInterval).map(Date.init(timeIntervalSince1970:)) ?? Date()
             let id = (entry["id"] as? String).flatMap(UUID.init(uuidString:)) ?? UUID()
-            return ScrambleRecord(id: id, puzzle: puzzle, moves: moves, date: date)
+            // Scrambles saved before deals were numbered carry no number, but the moves
+            // are the position, so it can simply be worked out again.
+            let deal = (entry["deal"] as? String).flatMap(UInt128.init)
+                ?? Deal.number(of: CubieCube.solved.applying(moves), puzzle: puzzle)
+            return ScrambleRecord(id: id, puzzle: puzzle, moves: moves, deal: deal, date: date)
         }
     }
 
@@ -70,6 +75,7 @@ final class Store: ObservableObject {
             ["id": $0.id.uuidString,
              "puzzle": $0.puzzle.rawValue,
              "moves": $0.moves.notation,
+             "deal": String($0.deal),
              "date": $0.date.timeIntervalSince1970]
         }
         write(raw, to: historyURL)

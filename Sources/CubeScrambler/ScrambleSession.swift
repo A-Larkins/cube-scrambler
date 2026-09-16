@@ -9,7 +9,7 @@ import SwiftUI
 /// over the finished result.
 actor ScrambleGenerator {
 
-    private var prefetched: [PuzzleKind: [Move]] = [:]
+    private var prefetched: [PuzzleKind: Deal.Dealt] = [:]
 
     /// Forces the lookup tables to be built (or loaded from cache) before first use.
     func prepare() {
@@ -17,9 +17,14 @@ actor ScrambleGenerator {
         _ = Scrambler222.distances.first
     }
 
-    func next(for puzzle: PuzzleKind) -> [Move] {
+    func next(for puzzle: PuzzleKind) -> Deal.Dealt {
         if let ready = prefetched.removeValue(forKey: puzzle) { return ready }
         return generate(for: puzzle)
+    }
+
+    /// The scramble for one particular deal number, worked out on demand.
+    func dealt(_ number: UInt128, for puzzle: PuzzleKind) -> Deal.Dealt {
+        Deal.Dealt(number: number, moves: Dealer.moves(forDeal: number, puzzle: puzzle))
     }
 
     func prefetch(for puzzle: PuzzleKind) {
@@ -27,12 +32,10 @@ actor ScrambleGenerator {
         prefetched[puzzle] = generate(for: puzzle)
     }
 
-    private func generate(for puzzle: PuzzleKind) -> [Move] {
+    private func generate(for puzzle: PuzzleKind) -> Deal.Dealt {
         var rng = SystemRandomNumberGenerator()
-        switch puzzle {
-        case .three: return Scrambler333.scramble(using: &rng)
-        case .two: return Scrambler222.scramble(using: &rng)
-        }
+        let number = Dealer.randomDeal(puzzle: puzzle, using: &rng)
+        return Deal.Dealt(number: number, moves: Dealer.moves(forDeal: number, puzzle: puzzle))
     }
 }
 
@@ -42,6 +45,8 @@ final class ScrambleSession: ObservableObject {
 
     /// The scramble, as a list of turns from a solved cube.
     @Published private(set) var scramble: [Move] = []
+    /// Which of the puzzle's finite scrambles this one is, counting from 0.
+    @Published private(set) var deal: UInt128 = 0
     /// How many of those turns have been applied. 0 is solved, `scramble.count` is done.
     @Published private(set) var position: Int = 0
     @Published private(set) var isPreparing = true
@@ -104,11 +109,8 @@ final class ScrambleSession: ObservableObject {
         isAutoPlaying = false
         isGenerating = true
         let kind = puzzle
-        let moves = await generator.next(for: kind)
-        scramble = moves
-        position = 0
-        isGenerating = false
-        store.record(moves, puzzle: kind)
+        let dealt = await generator.next(for: kind)
+        apply(dealt, puzzle: kind)
         Task.detached(priority: .background) { [generator] in
             await generator.prefetch(for: kind)
         }
@@ -119,7 +121,34 @@ final class ScrambleSession: ObservableObject {
         puzzle = record.puzzle
         store.puzzle = record.puzzle
         scramble = record.moves
+        deal = record.deal
         position = 0
+    }
+
+    /// Goes to a deal by number - the same number always brings back the same scramble.
+    func goToDeal(_ number: UInt128) async {
+        guard !isPreparing, number != deal || scramble.isEmpty else { return }
+        isAutoPlaying = false
+        isGenerating = true
+        let kind = puzzle
+        let dealt = await generator.dealt(number, for: kind)
+        apply(dealt, puzzle: kind)
+    }
+
+    /// The deal before or after this one, wrapping at either end of the puzzle.
+    func stepDeal(by offset: Int) async {
+        let total = Deal.total(for: puzzle)
+        let next = offset < 0 ? (deal == 0 ? total - 1 : deal - 1)
+                              : (deal + 1 == total ? 0 : deal + 1)
+        await goToDeal(next)
+    }
+
+    private func apply(_ dealt: Deal.Dealt, puzzle kind: PuzzleKind) {
+        scramble = dealt.moves
+        deal = dealt.number
+        position = 0
+        isGenerating = false
+        store.record(dealt, puzzle: kind)
     }
 
     func switchTo(_ kind: PuzzleKind) async {

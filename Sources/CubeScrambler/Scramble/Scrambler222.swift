@@ -223,7 +223,11 @@ enum Scrambler222 {
 
     /// The state index of a cube built by applying `moves` to a solved cube.
     static func stateIndex(after moves: [Move]) -> Int {
-        let cube = CubieCube.solved.applying(moves)
+        stateIndex(of: CubieCube.solved.applying(moves))
+    }
+
+    /// Where a cube sits in the 3,674,160 states, reading only its seven moving corners.
+    static func stateIndex(of cube: CubieCube) -> Int {
         var perm = [UInt8](repeating: 0, count: 7)
         var ori = [UInt8](repeating: 0, count: 7)
         for k in 0..<7 {
