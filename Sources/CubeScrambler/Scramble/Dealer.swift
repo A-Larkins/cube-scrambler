@@ -8,10 +8,9 @@ import Foundation
 /// once, drawing a random number is drawing a random position. Uniformity is unchanged.
 enum Dealer {
 
-    /// The scramble for one deal. Deterministic on the 2x2, whose solutions are optimal
-    /// and so unique in length; on the 3x3 the two-phase search can settle on a different
-    /// sequence of the same length if the machine is busy, but it always reaches this
-    /// exact position.
+    /// The scramble for one deal, and always the same one: the 2x2's solutions are optimal,
+    /// and the 3x3's search is budgeted in nodes rather than seconds, so neither depends on
+    /// how busy the machine is.
     static func moves(forDeal number: UInt128, puzzle: PuzzleKind) -> [Move] {
         let cube = Deal.cube(for: number, puzzle: puzzle)
         switch puzzle {

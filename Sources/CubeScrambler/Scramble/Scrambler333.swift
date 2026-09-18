@@ -13,15 +13,19 @@ enum Scrambler333 {
     static let goodEnoughLength = 20
     /// Never return anything longer than this.
     static let maximumLength = 22
+    /// Give up looking for something shorter after this many phase-1 nodes, provided
+    /// something has already been found. A count rather than a clock: the same cube then
+    /// gets the same scramble on any machine, however busy, which is what lets a deal
+    /// number stand for a scramble and not merely for a position.
+    static let searchBudget = 6_000_000
 
     static func scramble(using rng: inout some RandomNumberGenerator) -> [Move] {
         let target = CubieCube.random(using: &rng)
         return solve(target).inverted
     }
 
-    static func solve(_ cube: CubieCube,
-                      timeBudget: TimeInterval = 0.75) -> [Move] {
-        TwoPhaseSolver(cube: cube, timeBudget: timeBudget).run()
+    static func solve(_ cube: CubieCube) -> [Move] {
+        TwoPhaseSolver(cube: cube).run()
     }
 }
 
@@ -30,15 +34,15 @@ private final class TwoPhaseSolver {
 
     private let tables = Tables333.shared
     private let cube: CubieCube
-    private let deadline: Date
+    /// Phase-1 positions looked at so far, which is what the search is budgeted in.
+    private var nodes = 0
 
     private var phase1Path: [Int] = []      // indices into Move.all
     private var phase2Path: [Int] = []      // indices into Coordinates.phase2Moves
     private var best: [Move]?
 
-    init(cube: CubieCube, timeBudget: TimeInterval) {
+    init(cube: CubieCube) {
         self.cube = cube
-        self.deadline = Date().addingTimeInterval(timeBudget)
     }
 
     func run() -> [Move] {
@@ -56,7 +60,7 @@ private final class TwoPhaseSolver {
             searchPhase1(twist: twist, flip: flip, slice: slice,
                          remaining: depth, lastFace: -1)
             if let best, best.count <= Scrambler333.goodEnoughLength { break }
-            if Date() >= deadline, best != nil { break }
+            if best != nil, nodes >= Scrambler333.searchBudget { break }
         }
 
         // The search is exhaustive by depth, so this only fires if the budget ran out
@@ -68,6 +72,7 @@ private final class TwoPhaseSolver {
 
     private func searchPhase1(twist: Int, flip: Int, slice: Int,
                               remaining: Int, lastFace: Int) {
+        nodes += 1
         let lowerBound = max(tables.sliceTwistPrune[slice * Coordinates.twistCount + twist],
                              tables.sliceFlipPrune[slice * Coordinates.flipCount + flip])
         if Int(lowerBound) > remaining { return }

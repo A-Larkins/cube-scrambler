@@ -75,6 +75,22 @@ final class DealTests: XCTestCase {
         }
     }
 
+    /// A deal has to be the same scramble every time, not merely the same position:
+    /// the search is budgeted in nodes rather than seconds precisely so that a busy
+    /// machine cannot change the answer.
+    func testTheSameDealGivesTheSameTurns() {
+        var rng = SystemRandomNumberGenerator()
+        for puzzle in PuzzleKind.allCases {
+            let total = Deal.total(for: puzzle)
+            for _ in 0..<5 {
+                let number = UInt128.random(in: 0..<total, using: &rng)
+                XCTAssertEqual(Dealer.moves(forDeal: number, puzzle: puzzle).notation,
+                               Dealer.moves(forDeal: number, puzzle: puzzle).notation,
+                               "\(puzzle.displayName) deal \(Deal.formatted(number))")
+            }
+        }
+    }
+
     /// A 2x2 deal number is the state index the solver already uses, so its scrambles stay
     /// optimal: never longer than the known worst case of 11 turns.
     func testTwoByTwoDealsStayOptimal() {

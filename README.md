@@ -76,10 +76,11 @@ thing as drawing a random position, and uniformity is unaffected.
 The 3x3 count is larger than a 64-bit integer holds, so deals are `UInt128`, which is why
 the app now needs macOS 15.
 
-The same number always gives the same position. On the 2x2 it gives the identical turns as
-well, since optimal solutions fix the length. On the 3x3 the two-phase search can settle on
-a different sequence of about the same length if the machine is busy - it always reaches
-the same position, but the turns are not guaranteed to be character for character equal.
+The same number always gives the same scramble, turn for turn. That takes a solver that
+does not depend on the clock: the 3x3 search gives up looking for something shorter after a
+fixed number of positions examined rather than after a fixed number of seconds, so a busy
+machine cannot change the answer. Worst case is about a second; typical scrambles come out
+at 19-21 turns either way.
 
 Generating a 3x3 scramble takes roughly a third of a second, so the next one is always
 being worked out in the background while you step through the current one.
