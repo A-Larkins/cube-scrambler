@@ -41,7 +41,7 @@ enum CubeGeometry {
         let last = n - 1
         let axis = move.face.outwardNormal
         // signedAngle is negative for a clockwise turn, so the quarter-turn count is too.
-        let quarterTurns = -move.amount
+        let quarterTurns = -move.signedQuarterTurns
 
         // Centred coordinates so the rotation is about the cube's middle. Doubling keeps
         // everything integral for even-sized cubes.

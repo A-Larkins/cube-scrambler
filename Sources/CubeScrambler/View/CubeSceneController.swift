@@ -36,7 +36,10 @@ final class CubeSceneController {
     enum Defaults {
         static let azimuth: Double = 30
         static let elevation: Double = 20
+        /// How long a quarter turn takes. A half turn covers twice the angle, so it gets
+        /// longer than this - but not twice as long, which reads as a stall.
         static let turnDuration: TimeInterval = 0.62
+        static let halfTurnDuration: TimeInterval = 0.88
         static let swingDuration: TimeInterval = 0.38
         /// How long the arrow sits still before the turn starts.
         static let arrowHold: TimeInterval = 0.28
@@ -248,9 +251,12 @@ final class CubeSceneController {
         for cubie in moving { pivot.addChildNode(cubie.node) }
 
         let axis = effective.rotationAxis
+        // signedAngle takes the short way round, so a prime turns one quarter the way the
+        // arrow points rather than three quarters the other way to the same place.
+        let duration = effective.isHalfTurn ? Defaults.halfTurnDuration : Defaults.turnDuration
         let rotation = SCNAction.rotate(by: CGFloat(effective.signedAngle),
                                         around: SCNVector3(axis.x, axis.y, axis.z),
-                                        duration: Defaults.turnDuration)
+                                        duration: duration)
         rotation.timingMode = .easeInEaseOut
 
         pivot.runAction(rotation) { [weak self] in

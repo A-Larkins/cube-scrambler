@@ -94,13 +94,21 @@ extension Move {
         return (Double(n.x), Double(n.y), Double(n.z))
     }
 
+    /// The turn as quarter turns taken the short way round: 1 clockwise, 2 half turn,
+    /// -1 counter-clockwise. `amount` counts clockwise quarter turns only, so a prime
+    /// arrives as 3; driving an animation straight off that value winds the layer three
+    /// quarters clockwise to reach a position one quarter counter-clockwise away. The
+    /// end state is identical, which is why the cube never looked wrong - but the motion
+    /// is the opposite of what the arrow and the sentence promised.
+    var signedQuarterTurns: Int { amount == 3 ? -1 : amount }
+
     /// Rotation angle in radians about `rotationAxis`, right-hand rule.
     ///
     /// A face turn is defined as clockwise *seen from outside that face*, which is a
     /// NEGATIVE rotation about the outward normal under the right-hand rule. Everything
     /// downstream - the SceneKit animation, the arrow, and the English sentence - reads
     /// its direction from this one expression.
-    var signedAngle: Double { -Double.pi / 2 * Double(amount) }
+    var signedAngle: Double { -Double.pi / 2 * Double(signedQuarterTurns) }
 
     /// A point on this face whose motion is easy to describe, and what to call it.
     /// Chosen to be an edge centre on a row/column the viewer can actually see.
@@ -129,9 +137,7 @@ extension Move {
     /// axis with the sign of `signedAngle`.
     var probeVelocity: (x: Double, y: Double, z: Double) {
         let n = face.outwardNormal
-        // A prime is the opposite rotation, but -270 degrees has the same sign as -90,
-        // so the direction has to come from the effective quarter turn, not the angle.
-        let sign: Double = amount == 3 ? 1 : -1
+        let sign = signedAngle < 0 ? -1.0 : 1.0
         let w = (x: Double(n.x) * sign, y: Double(n.y) * sign, z: Double(n.z) * sign)
         let r = probeOffset
         return (w.y * r.z - w.z * r.y,

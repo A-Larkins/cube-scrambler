@@ -31,6 +31,48 @@ final class DirectionTests: XCTestCase {
         }
     }
 
+    /// The bug this pins: a prime used to animate as three quarter turns the clockwise
+    /// way. It landed in the right place, so nothing looked broken until you tried to
+    /// follow it with a cube in your hands and turned the layer the opposite way.
+    func testEveryTurnAnimatesTheShortWayRound() {
+        for face in Face.allCases {
+            XCTAssertEqual(Move(face, 1).signedQuarterTurns, 1, "\(face.letter)")
+            XCTAssertEqual(Move(face, 2).signedQuarterTurns, 2, "\(face.letter)2")
+            XCTAssertEqual(Move(face, 3).signedQuarterTurns, -1, "\(face.letter)'")
+
+            for amount in 1...3 {
+                let move = Move(face, amount)
+                let quarters = move.signedAngle / (.pi / 2)
+                XCTAssertLessThanOrEqual(abs(quarters), 2.0001,
+                                         "\(move.notation) sweeps \(quarters) quarter turns")
+                // Still the same turn: equal to the clockwise count modulo a full turn.
+                XCTAssertEqual((((-Int(quarters.rounded()) % 4) + 4) % 4), move.amount,
+                               "\(move.notation) no longer lands where it should")
+            }
+        }
+    }
+
+    /// A prime turns the opposite way from the plain move, not merely to a different
+    /// place - the two angles have to have opposite signs.
+    func testPrimeSweepsOppositeToClockwise() {
+        for face in Face.allCases {
+            XCTAssertLessThan(Move(face, 1).signedAngle, 0, "\(face.letter) should sweep clockwise")
+            XCTAssertGreaterThan(Move(face, 3).signedAngle, 0, "\(face.letter)' should sweep back")
+        }
+    }
+
+    /// Stepping back through a scramble runs each move inverted, so that path has to take
+    /// the short way round too.
+    func testSteppingBackwardsAlsoTakesTheShortWay() {
+        for move in Move.all {
+            let back = move.inverse
+            XCTAssertLessThanOrEqual(abs(back.signedAngle), .pi + 0.0001,
+                                     "undoing \(move.notation) sweeps too far")
+            XCTAssertEqual(back.signedQuarterTurns, -move.signedQuarterTurns + (move.isHalfTurn ? 4 : 0),
+                           "undoing \(move.notation) is not the opposite turn")
+        }
+    }
+
     func testHalfTurnsClaimNoDirection() {
         for face in Face.allCases {
             XCTAssertNil(Move(face, 2).instruction.direction)
