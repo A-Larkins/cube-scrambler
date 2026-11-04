@@ -29,7 +29,7 @@ cat > "$APP/Contents/Info.plist" << EOF
     <key>CFBundleIdentifier</key>
     <string>com.andrewlarkins.cubescrambler</string>
     <key>CFBundleName</key>
-    <string>$APP_NAME</string>
+    <string>Cube Scrambler</string>
     <key>CFBundleDisplayName</key>
     <string>Cube Scrambler</string>
     <key>CFBundleIconFile</key>
