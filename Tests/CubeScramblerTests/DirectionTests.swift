@@ -182,6 +182,52 @@ final class ArrowDirectionTests: XCTestCase {
         }
     }
 
+    /// The bug this pins: the head used to be a 3D cone, about as long as it was wide, that
+    /// on screen looked like it pointed back along the band. A U' arrow read as clockwise.
+    /// Checks the head that is actually drawn: its tip has to lie ahead of its base in the
+    /// stated direction, and it has to be long enough that the point is the obvious end.
+    func testArrowheadPointsTheWayTheSentenceSays() {
+        for face in Face.allCases {
+            for amount in [1, 3] {
+                let move = Move(face, amount)
+                guard let stated = move.instruction.direction else { continue }
+                let sign = CubeSceneController.arrowSign(for: move)
+                let corners = CubeSceneController.arrowHeadCorners(
+                    baseAngle: CubeSceneController.probeAngle(for: move), sign: sign,
+                    radius: 1, length: CubeSceneController.Head.length * 0.1,
+                    halfWidth: CubeSceneController.Head.halfWidth * 0.1)
+                let tip = corners[0]
+                let baseMid = CGPoint(x: (corners[1].x + corners[2].x) / 2,
+                                      y: (corners[1].y + corners[2].y) / 2)
+                let pointing = SIMD3<Float>(Float(tip.x - baseMid.x), Float(tip.y - baseMid.y), 0)
+                let world = CubeSceneController.arrowOrientation(for: face).act(pointing)
+                let drawn = Move.directionName((Double(world.x), Double(world.y), Double(world.z)))
+                XCTAssertEqual(drawn, stated,
+                               "\(move.notation): arrowhead points \(drawn), sentence says \(stated)")
+            }
+        }
+        XCTAssertGreaterThan(CubeSceneController.Head.length,
+                             2 * CubeSceneController.Head.halfWidth,
+                             "arrowhead must be longer than it is wide, or its point is ambiguous")
+    }
+
+    /// U' in particular, spelled out: looking down on the top face, the head on the front
+    /// row must point to the right - counter-clockwise, the way a prime goes.
+    func testUPrimeArrowheadIsCounterClockwiseFromAbove() {
+        for (amount, expectRight) in [(3, true), (1, false)] {
+            let move = Move(.U, amount)
+            let corners = CubeSceneController.arrowHeadCorners(
+                baseAngle: CubeSceneController.probeAngle(for: move),
+                sign: CubeSceneController.arrowSign(for: move),
+                radius: 1, length: 0.2, halfWidth: 0.09)
+            let baseMid = SIMD3<Float>(Float(corners[1].x + corners[2].x) / 2,
+                                       Float(corners[1].y + corners[2].y) / 2, 0)
+            let tip = SIMD3<Float>(Float(corners[0].x), Float(corners[0].y), 0)
+            let world = CubeSceneController.arrowOrientation(for: .U).act(tip - baseMid)
+            XCTAssertEqual(world.x > 0, expectRight, "\(move.notation) head x = \(world.x)")
+        }
+    }
+
     /// And the arc really does sit over the row the sentence names, not somewhere else on
     /// the face - that was the point of centring it on the probe.
     func testArrowSitsOverTheRowTheSentenceNames() {

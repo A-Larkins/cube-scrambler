@@ -335,41 +335,73 @@ final class CubeSceneController {
         arrowNode = nil
     }
 
+    /// Arrowhead proportions, as multiples of the band's thickness. Longer than it is wide,
+    /// so the point is unmistakable: the old 3D cones were about as long as they were wide
+    /// and read as pointing whichever way you happened to look at them.
+    enum Head {
+        static let length = 2.1
+        static let halfWidth = 0.95
+    }
+
     /// One curved arrow: a band swept along an arc, with a head on the leading end (both
     /// ends for a half turn, which can be made either way round).
     private func arrow(move: Move, radius: Double, thickness: Double,
                        inflate: Double, color: NSColor, depth: Double) -> SCNNode {
-        let counterClockwise = move.amount == 3
-        let sign: Double = counterClockwise ? 1 : -1
         let sweep = move.isHalfTurn ? 152.0 : 120.0
         // Centre the arc on the row or column the written instruction names, so the head
         // lands exactly where the sentence says the stickers are going. Without this the
         // arc sits at whatever local angle zero happens to be, which is a different - and
         // often hidden - part of every face.
         let centre = CubeSceneController.probeAngle(for: move)
+        let sign = CubeSceneController.arrowSign(for: move)
         // Grow the halo along the arc as well as across it, or the ends would show through.
         let extra = inflate / radius * 180 / .pi
         let width = thickness + 2 * inflate
-        let headAngle = 27.0
+        let length = thickness * Head.length
+        let headDegrees = length / radius * 180 / .pi
 
-        let tail = centre - sign * (sweep / 2 + extra)
-        let tip = centre + sign * (sweep / 2 + extra)
-        let bandStart = move.isHalfTurn ? tail + sign * headAngle : tail
-        let bandEnd = tip - sign * headAngle
+        // Each head's base sits where the band stops, so band and head are one shape with
+        // no gap between them for the eye to misread.
+        let tailBase = centre - sign * sweep / 2 + (move.isHalfTurn ? sign * headDegrees : 0)
+        let tipBase = centre + sign * sweep / 2 - sign * headDegrees
+        let bandStart = move.isHalfTurn ? tailBase : tailBase - sign * extra
 
         let node = SCNNode()
-        node.addChildNode(band(from: bandStart, to: bandEnd, radius: radius,
+        node.addChildNode(band(from: bandStart, to: tipBase, radius: radius,
                                width: width, color: color, depth: depth))
-        // The head takes only half the halo's inflation. At full inflation the dark
-        // cone swallows the amber one and the arrow reads as a black arrowhead.
-        let headWidth = thickness + inflate
-        node.addChildNode(head(at: tip, radius: radius, width: headWidth,
-                               increasing: counterClockwise, color: color, depth: depth))
+        node.addChildNode(head(baseAngle: tipBase, sign: sign, radius: radius,
+                               thickness: thickness, inflate: inflate, color: color, depth: depth))
         if move.isHalfTurn {
-            node.addChildNode(head(at: tail, radius: radius, width: headWidth,
-                                   increasing: !counterClockwise, color: color, depth: depth))
+            node.addChildNode(head(baseAngle: tailBase, sign: -sign, radius: radius,
+                                   thickness: thickness, inflate: inflate, color: color, depth: depth))
         }
         return node
+    }
+
+    /// +1 when the arrow runs counter-clockwise in the face's drawing plane (a prime), -1
+    /// when it runs clockwise. That plane's +Z is the face's outward normal, so this is
+    /// counter-clockwise exactly as you see it looking at the face.
+    static func arrowSign(for move: Move) -> Double {
+        move.amount == 3 ? 1 : -1
+    }
+
+    /// The three corners of a flat arrowhead in the face's drawing plane: tip first, then
+    /// the two base corners. The base straddles the arc at `baseAngle` (degrees) and the
+    /// tip runs off along the arc's tangent in the direction of travel - `sign` +1 for
+    /// counter-clockwise, -1 for clockwise.
+    static func arrowHeadCorners(baseAngle: Double, sign: Double, radius: Double,
+                                 length: Double, halfWidth: Double,
+                                 backset: Double = 0) -> [CGPoint] {
+        let a = baseAngle * .pi / 180
+        let radial = (x: cos(a), y: sin(a))
+        let tangent = (x: -sin(a) * sign, y: cos(a) * sign)
+        let base = (x: radius * radial.x - backset * tangent.x,
+                    y: radius * radial.y - backset * tangent.y)
+        return [
+            CGPoint(x: base.x + length * tangent.x, y: base.y + length * tangent.y),
+            CGPoint(x: base.x + halfWidth * radial.x, y: base.y + halfWidth * radial.y),
+            CGPoint(x: base.x - halfWidth * radial.x, y: base.y - halfWidth * radial.y)
+        ]
     }
 
     /// The arc itself, as an explicit polygon. Built point by point rather than with
@@ -400,17 +432,29 @@ final class CubeSceneController {
         return node
     }
 
-    private func head(at degrees: Double, radius: Double, width: Double,
-                      increasing: Bool, color: NSColor, depth: Double) -> SCNNode {
-        let cone = SCNCone(topRadius: 0, bottomRadius: CGFloat(width * 0.95),
-                           height: CGFloat(width * 1.75))
-        cone.materials = [CubeSceneController.arrowMaterial(color)]
-        let node = SCNNode(geometry: cone)
-        let radians = degrees * .pi / 180
-        node.position = SCNVector3(radius * cos(radians), radius * sin(radians), depth)
-        // A cone points along its own +Y; spinning it by the arc angle lines +Y up with
-        // the tangent, plus half a turn when the arrow runs the other way round.
-        node.eulerAngles = SCNVector3(0, 0, Float(increasing ? radians : radians + .pi))
+    /// A flat triangular head lying in the face plane, like the band. It used to be a 3D
+    /// cone, which half sank into the cube, was swallowed by its own dark halo, and from
+    /// most angles looked like it pointed back the way the arrow came - so a U' arrow read
+    /// as clockwise even though the turn itself was right.
+    private func head(baseAngle: Double, sign: Double, radius: Double, thickness: Double,
+                      inflate: Double, color: NSColor, depth: Double) -> SCNNode {
+        // The halo grows a little more at the tip than at the sides, so the dark outline
+        // is an even width all the way round the point.
+        let corners = CubeSceneController.arrowHeadCorners(
+            baseAngle: baseAngle, sign: sign, radius: radius,
+            length: thickness * Head.length + inflate * 2.6,
+            halfWidth: thickness * Head.halfWidth + inflate * 1.3,
+            backset: inflate)
+        let path = NSBezierPath()
+        path.move(to: corners[0])
+        path.line(to: corners[1])
+        path.line(to: corners[2])
+        path.close()
+
+        let shape = SCNShape(path: path, extrusionDepth: 0.05)
+        shape.materials = [CubeSceneController.arrowMaterial(color)]
+        let node = SCNNode(geometry: shape)
+        node.position = SCNVector3(0, 0, depth)
         return node
     }
 
